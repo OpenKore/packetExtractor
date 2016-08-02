@@ -229,77 +229,59 @@ int main(void) {
 	}
 	file.close();
 
-	file.open("shufflepackets.txt");
-	sprintf(str, "# Client Date <%d>\n", ClientDate);
-	file << str;
-	sprintf(str, "# PacketExtractor by BryanWai\n");
-	file << str;
-	for (i = 0; i < MAX_SHUFFLE_PACKET; ++i) {
-		if (!shuffle_pkt[i])
-			EXIT("Cannot generate openkore: shuffle_pkt header not found.\n");
-		switch (i) {
-		case 0:
-			sprintf(str, "%04X actor_action\n", shuffle_pkt[i]); break;
-		case 1:
-			sprintf(str, "%04X skill_use\n", shuffle_pkt[i]); break;
-		case 2:
-			sprintf(str, "%04X character_move\n", shuffle_pkt[i]); break;
-		case 3:
-			sprintf(str, "%04X sync\n", shuffle_pkt[i]); break;
-		case 4:
-			sprintf(str, "%04X actor_look_at\n", shuffle_pkt[i]); break;
-		case 5:
-			sprintf(str, "%04X item_take\n", shuffle_pkt[i]); break;
-		case 6:
-			sprintf(str, "%04X item_drop\n", shuffle_pkt[i]); break;
-		case 7:
-			sprintf(str, "%04X storage_item_add\n", shuffle_pkt[i]); break;
-		case 8:
-			sprintf(str, "%04X storage_item_remove\n", shuffle_pkt[i]); break;
-		case 9:
-			sprintf(str, "%04X skill_use_location\n", shuffle_pkt[i]); break;
-		case 10:
-			continue;
-		case 11:
-			sprintf(str, "%04X actor_info_request\n", shuffle_pkt[i]); break;
-		case 12:
-			sprintf(str, "%04X actor_name_request\n", shuffle_pkt[i]); break;
-		case 13:
-			continue;
-		case 14:
-			continue;
-		case 15:
-			continue;
-		case 16:
-			sprintf(str, "%04X buy_bulk_buyer\n", shuffle_pkt[i]); break;
-		case 17:
-			sprintf(str, "%04X buy_bulk_request\n", shuffle_pkt[i]); break;
-		case 18:
-			sprintf(str, "%04X buy_bulk_closeShop\n", shuffle_pkt[i]); break;
-		case 19:
-			sprintf(str, "%04X buy_bulk_openShop\n", shuffle_pkt[i]); break;
-		case 20:
-			sprintf(str, "%04X booking_register\n", shuffle_pkt[i]); break;
-		case 21:
-			continue;
-		case 22:
-			continue;
-		case 23:
-			sprintf(str, "%04X map_login\n", shuffle_pkt[i]); break;
-		case 24:
-			sprintf(str, "%04X party_join_request_by_name\n", shuffle_pkt[i]); break;
-		case 25:
-			continue;
-		case 26:
-			sprintf(str, "%04X friend_request\n", shuffle_pkt[i]); break;
-		case 27:
-			sprintf(str, "%04X homunculus_command\n", shuffle_pkt[i]); break;
-		case 28:
-			sprintf(str, "%04X storage_password\n", shuffle_pkt[i]); break;
-		}
+	{
+		const char* func[] =
+		{
+			(char*)("actor_action"),
+			(char*)("skill_use"),
+			(char*)("character_move"),
+			(char*)("sync"),
+			(char*)("actor_look_at"),
+			(char*)("item_take"),
+			(char*)("item_drop"),
+			(char*)("storage_item_add"),
+			(char*)("storage_item_remove"),
+			(char*)("skill_use_location"),
+			(char*)(""),
+			(char*)("actor_info_request"),
+			(char*)("actor_name_request"),
+			(char*)(""),
+			(char*)(""),
+			(char*)(""),
+			(char*)("buy_bulk_buyer"),
+			(char*)("buy_bulk_request"),
+			(char*)("buy_bulk_closeShop"),
+			(char*)("buy_bulk_openShop"),
+			(char*)("booking_register"),
+			(char*)(""),
+			(char*)(""),
+			(char*)("map_login"),
+			(char*)("party_join_request_by_name"),
+			(char*)(""),
+			(char*)("friend_request"),
+			(char*)("homunculus_command"),
+			(char*)("storage_password")
+		};
+		file.open("shufflepackets.txt");
+		sprintf(str, "# Client Date <%d>\n", ClientDate);
 		file << str;
+		sprintf(str, "# PacketExtractor by BryanWai\n");
+		file << str;
+		for (i = 0; i < MAX_SHUFFLE_PACKET; ++i) {
+			if (!shuffle_pkt[i])
+				EXIT("Cannot generate openkore: shuffle_pkt header not found.\n");
+			switch (i) {
+			case 10: case 13: case 14:
+			case 15: case 21: case 22:
+			case 25:
+				continue;
+			default:
+				sprintf(str, "%04X %s\n", shuffle_pkt[i], func[i]); break;
+			}
+			file << str;
+		}
+		file.close();
 	}
-	file.close();
 	printf("Done!\n");
 
 	cout << "Press ENTER to exit...";
