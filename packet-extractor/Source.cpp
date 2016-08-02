@@ -128,9 +128,6 @@ int main(void) {
 	printf("Client date: %d\n", ClientDate);
 
 	printf("Step 5b - Extract packet length\n");
-	sprintf(str, "PacketLengths_%d.ini", ClientDate);
-	file.open(str);
-	file << "[Packet_Lengths]\n";
 	for (i = c = 0; i < 2; ++i) {
 		if (!i)
 			last = offset2;
@@ -177,37 +174,36 @@ int main(void) {
 			}
 			if (!pktlen[header]) {
 				pktlen[header] = len;
-				sprintf(str, "0x%04X = %d\n", header, len);
-				file << str;
 			}
 			if (!i && c < MAX_SHUFFLE_PACKET + (MAX_SYNC_EX_PACKET << 1))
 				shuffle_pkt[c++] = header;
 		}
 	}
 
-	file << "\n[Packet_Keys]\n";
+	file.open("keys.txt");
+	sprintf(str, "# Client Date <%d>\n", ClientDate);
+	file << str;
+	sprintf(str, "# PacketExtractor by BryanWai\n");
+	file << str;
 	if ((offset = ScanMem(&vec, "\x8B\x0D\xAB\xAB\xAB\x00\x6A\x01\xE8", refOffset, 0, 9, false)) == 0xFFFFFFFF)
 		EXIT("Packet keys not found.\n");
 	offset += *(DWORD*)&ReadMemory(offset + 9);
 	if ((offset = ScanMem(&vec, "\xC7\x41\xAB\xAB\xAB\xAB\xAB\xC7\x41\xAB\xAB\xAB\xAB\xAB\xC7\x41", offset, 0, 16, false)) == 0xFFFFFFFF)
 		EXIT("Packet keys not found.\n");
-	sprintf(str, "1 = 0x%08X\n", *(DWORD*)&ReadMemory(offset + 3));
+	sprintf(str, "0x%08X\n", *(DWORD*)&ReadMemory(offset + 3));
 	file << str;
-	sprintf(str, "2 = 0x%08X\n", *(DWORD*)&ReadMemory(offset + 10));
+	sprintf(str, "0x%08X\n", *(DWORD*)&ReadMemory(offset + 17));
 	file << str;
-	sprintf(str, "3 = 0x%08X\n", *(DWORD*)&ReadMemory(offset + 17));
+	sprintf(str, "0x%08X\n", *(DWORD*)&ReadMemory(offset + 10));
 	file << str;
-
-	file << "\n[Shuffle_Packets]\n";
-	for (i = 0; i < MAX_SHUFFLE_PACKET; ++i) {
-		sprintf(str, "0x%04X = %d\n", shuffle_pkt[i], i);
-		file << str;
-	}
 
 	file.close();
 
-	sprintf(str, "recvpackets_%d.txt", ClientDate);
-	file.open(str);
+	file.open("recvpackets.txt");
+	sprintf(str, "# Client Date <%d>\n", ClientDate);
+	file << str;
+	sprintf(str, "# PacketExtractor by BryanWai\n");
+	file << str;
 	for (i = c = 0; i < MAX_PACKET; ++i) {
 		if (pktlen[i]) {
 			sprintf(str, "%04X %d\n", i, pktlen[i]);
@@ -218,161 +214,89 @@ int main(void) {
 	file.close();
 	printf("Total Packets: %d\n", c);
 
-	sprintf(str, "openkore_%d.txt", ClientDate);
-	file.open(str);
-	file << "[Receive]\n";
-	for (i = MAX_SHUFFLE_PACKET; i < MAX_SHUFFLE_PACKET + MAX_SYNC_EX_PACKET; ++i) {
-		if (!shuffle_pkt[i])
-			EXIT("Cannot generate openkore: sync_request_ex header not found.\n");
-		if (pktlen[shuffle_pkt[i]] != 2)
-			EXIT("Cannot generate openkore: sync_request_ex len not match.\n");
-		sprintf(str, "\t\t'%04X' => ['sync_request_ex'],\n", shuffle_pkt[i]);
-		file << str;
-	}
-	file << "\n";
+	file.open("sync.txt");
+	sprintf(str, "# Client Date <%d>\n", ClientDate);
+	file << str;
+	sprintf(str, "# PacketExtractor by BryanWai\n");
+	file << str;
 	for (i = MAX_SHUFFLE_PACKET; i < MAX_SHUFFLE_PACKET + MAX_SYNC_EX_PACKET; ++i) {
 		if (!shuffle_pkt[i + MAX_SYNC_EX_PACKET])
-			EXIT("Cannot generate openkore: sync_ex_reply header not found.\n");
+			EXIT("Cannot generate sync.txt: sync_ex_reply header not found.\n");
 		if (pktlen[shuffle_pkt[i]] != 2)
-			EXIT("Cannot generate openkore: sync_ex_reply len not match.\n");
-		sprintf(str, "\t\t'%04X' => '%04X',\n", shuffle_pkt[i], shuffle_pkt[i + MAX_SYNC_EX_PACKET]);
+			EXIT("Cannot generate sync.txt: sync_ex_reply len not match.\n");
+		sprintf(str, "%04X %04X\n", shuffle_pkt[i], shuffle_pkt[i + MAX_SYNC_EX_PACKET]);
 		file << str;
 	}
-	file << "\n\n[Send]\n";
-	{
-		short shuffle_pkt_len[MAX_SHUFFLE_PACKET] = { 7, 10, 5, 6, 5, 6, 6, 8, 8, 10, 90, 6, 6, 12, 2, -1, -1, 6, 2, -1, 18, 8, -1, 19, 26, 4, 26, 5, 36 };
-		for (i = 0; i < MAX_SHUFFLE_PACKET; ++i) {
-			if (!shuffle_pkt[i])
-				EXIT("Cannot generate openkore: shuffle_pkt header not found.\n");
-			if (pktlen[shuffle_pkt[i]] != shuffle_pkt_len[i])
-				EXIT("Cannot generate openkore: shuffle_pkt len not match.\n");
-			switch (i) {
-			case 0:
-				sprintf(str, "\t\t'%04X' => ['actor_action', 'a4 C', [qw(targetID type)]],\n", shuffle_pkt[i]); break;
-			case 1:
-				sprintf(str, "\t\t'%04X' => ['skill_use', 'v2 a4', [qw(lv skillID targetID)]],\n", shuffle_pkt[i]); break;
-			case 2:
-				sprintf(str, "\t\t'%04X' => ['character_move','a3', [qw(coords)]],\n", shuffle_pkt[i]); break;
-			case 3:
-				sprintf(str, "\t\t'%04X' => ['sync', 'V', [qw(time)]],\n", shuffle_pkt[i]); break;
-			case 4:
-				sprintf(str, "\t\t'%04X' => ['actor_look_at', 'v C', [qw(head body)]],\n", shuffle_pkt[i]); break;
-			case 5:
-				sprintf(str, "\t\t'%04X' => ['item_take', 'a4', [qw(ID)]],\n", shuffle_pkt[i]); break;
-			case 6:
-				sprintf(str, "\t\t'%04X' => ['item_drop', 'v2', [qw(index amount)]],\n", shuffle_pkt[i]); break;
-			case 7:
-				sprintf(str, "\t\t'%04X' => ['storage_item_add', 'v V', [qw(index amount)]],\n", shuffle_pkt[i]); break;
-			case 8:
-				sprintf(str, "\t\t'%04X' => ['storage_item_remove', 'v V', [qw(index amount)]],\n", shuffle_pkt[i]); break;
-			case 9:
-				sprintf(str, "\t\t'%04X' => ['skill_use_location', 'v4', [qw(lv skillID x y)]],\n", shuffle_pkt[i]); break;
-			case 10:
-				sprintf(str, "\t\t#PACKET_CZ_USE_SKILL_TOGROUND_WITHTALKBOX2\n"); break;
-			case 11:
-				sprintf(str, "\t\t'%04X' => ['actor_info_request', 'a4', [qw(ID)]],\n", shuffle_pkt[i]); break;
-			case 12:
-				sprintf(str, "\t\t'%04X' => ['actor_name_request', 'a4', [qw(ID)]],\n", shuffle_pkt[i]); break;
-			case 13:
-				sprintf(str, "\t\t#PACKET_CZ_SSILIST_ITEM_CLICK\n"); break;
-			case 14:
-				sprintf(str, "\t\t#PACKET_CZ_SEARCH_STORE_INFO_NEXT_PAGE\n"); break;
-			case 15:
-				sprintf(str, "\t\t#PACKET_CZ_SEARCH_STORE_INFO\n"); break;
-			case 16:
-				sprintf(str, "\t\t'%04X' => ['buy_bulk_buyer', 'a4 a4 a*', [qw(buyerID buyingStoreID itemInfo)]],\n", shuffle_pkt[i]); break;
-			case 17:
-				sprintf(str, "\t\t'%04X' => ['buy_bulk_request', 'a4', [qw(ID)]],\n", shuffle_pkt[i]); break;
-			case 18:
-				sprintf(str, "\t\t'%04X' => ['buy_bulk_closeShop'],\n", shuffle_pkt[i]); break;
-			case 19:
-				sprintf(str, "\t\t'%04X' => ['buy_bulk_openShop', 'a4 c a*', [qw(limitZeny result itemInfo)]],\n", shuffle_pkt[i]); break;
-			case 20:
-				sprintf(str, "\t\t'%04X' => ['booking_register', 'v8', [qw(level MapID job0 job1 job2 job3 job4 job5)]],\n", shuffle_pkt[i]); break;
-			case 21:
-				sprintf(str, "\t\t#PACKET_CZ_JOIN_BATTLE_FIELD\n"); break;
-			case 22:
-				sprintf(str, "\t\t#PACKET_CZ_ITEMLISTWIN_RES\n"); break;
-			case 23:
-				sprintf(str, "\t\t'%04X' => ['map_login', 'a4 a4 a4 V C', [qw(accountID charID sessionID tick sex)]],\n", shuffle_pkt[i]); break;
-			case 24:
-				sprintf(str, "\t\t'%04X' => ['party_join_request_by_name', 'Z24', [qw(partyName)]],\n", shuffle_pkt[i]); break;
-			case 25:
-				sprintf(str, "\t\t#PACKET_CZ_GANGSI_RANK\n"); break;
-			case 26:
-				sprintf(str, "\t\t'%04X' => ['friend_request', 'a*', [qw(username)]],\n", shuffle_pkt[i]); break;
-			case 27:
-				sprintf(str, "\t\t'%04X' => ['homunculus_command', 'v C', [qw(commandType, commandID)]],\n", shuffle_pkt[i]); break;
-			case 28:
-				sprintf(str, "\t\t'%04X' => ['storage_password'],\n", shuffle_pkt[i]); break;
-			}
-			file << str;
+	file.close();
+
+	file.open("shufflepackets.txt");
+	sprintf(str, "# Client Date <%d>\n", ClientDate);
+	file << str;
+	sprintf(str, "# PacketExtractor by BryanWai\n");
+	file << str;
+	for (i = 0; i < MAX_SHUFFLE_PACKET; ++i) {
+		if (!shuffle_pkt[i])
+			EXIT("Cannot generate openkore: shuffle_pkt header not found.\n");
+		switch (i) {
+		case 0:
+			sprintf(str, "%04X actor_action\n", shuffle_pkt[i]); break;
+		case 1:
+			sprintf(str, "%04X skill_use\n", shuffle_pkt[i]); break;
+		case 2:
+			sprintf(str, "%04X character_move\n", shuffle_pkt[i]); break;
+		case 3:
+			sprintf(str, "%04X sync\n", shuffle_pkt[i]); break;
+		case 4:
+			sprintf(str, "%04X actor_look_at\n", shuffle_pkt[i]); break;
+		case 5:
+			sprintf(str, "%04X item_take\n", shuffle_pkt[i]); break;
+		case 6:
+			sprintf(str, "%04X item_drop\n", shuffle_pkt[i]); break;
+		case 7:
+			sprintf(str, "%04X storage_item_add\n", shuffle_pkt[i]); break;
+		case 8:
+			sprintf(str, "%04X storage_item_remove\n", shuffle_pkt[i]); break;
+		case 9:
+			sprintf(str, "%04X skill_use_location\n", shuffle_pkt[i]); break;
+		case 10:
+			continue;
+		case 11:
+			sprintf(str, "%04X actor_info_request\n", shuffle_pkt[i]); break;
+		case 12:
+			sprintf(str, "%04X actor_name_request\n", shuffle_pkt[i]); break;
+		case 13:
+			continue;
+		case 14:
+			continue;
+		case 15:
+			continue;
+		case 16:
+			sprintf(str, "%04X buy_bulk_buyer\n", shuffle_pkt[i]); break;
+		case 17:
+			sprintf(str, "%04X buy_bulk_request\n", shuffle_pkt[i]); break;
+		case 18:
+			sprintf(str, "%04X buy_bulk_closeShop\n", shuffle_pkt[i]); break;
+		case 19:
+			sprintf(str, "%04X buy_bulk_openShop\n", shuffle_pkt[i]); break;
+		case 20:
+			sprintf(str, "%04X booking_register\n", shuffle_pkt[i]); break;
+		case 21:
+			continue;
+		case 22:
+			continue;
+		case 23:
+			sprintf(str, "%04X map_login\n", shuffle_pkt[i]); break;
+		case 24:
+			sprintf(str, "%04X party_join_request_by_name\n", shuffle_pkt[i]); break;
+		case 25:
+			continue;
+		case 26:
+			sprintf(str, "%04X friend_request\n", shuffle_pkt[i]); break;
+		case 27:
+			sprintf(str, "%04X homunculus_command\n", shuffle_pkt[i]); break;
+		case 28:
+			sprintf(str, "%04X storage_password\n", shuffle_pkt[i]); break;
 		}
-		file << "\n";
-		for (i = 0; i < MAX_SHUFFLE_PACKET; ++i) {
-			switch (i) {
-			case 0:
-				sprintf(str, "\t\tactor_action %04X\n", shuffle_pkt[i]); break;
-			case 1:
-				sprintf(str, "\t\tskill_use %04X\n", shuffle_pkt[i]); break;
-			case 2:
-				sprintf(str, "\t\tcharacter_move %04X\n", shuffle_pkt[i]); break;
-			case 3:
-				sprintf(str, "\t\tsync %04X\n", shuffle_pkt[i]); break;
-			case 4:
-				sprintf(str, "\t\tactor_look_at %04X\n", shuffle_pkt[i]); break;
-			case 5:
-				sprintf(str, "\t\titem_take %04X\n", shuffle_pkt[i]); break;
-			case 6:
-				sprintf(str, "\t\titem_drop %04X\n", shuffle_pkt[i]); break;
-			case 7:
-				sprintf(str, "\t\tstorage_item_add %04X\n", shuffle_pkt[i]); break;
-			case 8:
-				sprintf(str, "\t\tstorage_item_remove %04X\n", shuffle_pkt[i]); break;
-			case 9:
-				sprintf(str, "\t\tskill_use_location %04X\n", shuffle_pkt[i]); break;
-			case 10:
-				continue;
-			case 11:
-				sprintf(str, "\t\tactor_info_request %04X\n", shuffle_pkt[i]); break;
-			case 12:
-				sprintf(str, "\t\tactor_name_request %04X\n", shuffle_pkt[i]); break;
-			case 13:
-				continue;
-			case 14:
-				continue;
-			case 15:
-				continue;
-			case 16:
-				sprintf(str, "\t\tbuy_bulk_buyer %04X\n", shuffle_pkt[i]); break;
-			case 17:
-				sprintf(str, "\t\tbuy_bulk_request %04X\n", shuffle_pkt[i]); break;
-			case 18:
-				sprintf(str, "\t\tbuy_bulk_closeShop %04X\n", shuffle_pkt[i]); break;
-			case 19:
-				sprintf(str, "\t\tbuy_bulk_openShop %04X\n", shuffle_pkt[i]); break;
-			case 20:
-				sprintf(str, "\t\tbooking_register %04X\n", shuffle_pkt[i]); break;
-			case 21:
-				continue;
-			case 22:
-				continue;
-			case 23:
-				sprintf(str, "\t\tmap_login %04X\n", shuffle_pkt[i]); break;
-			case 24:
-				sprintf(str, "\t\tparty_join_request_by_name %04X\n", shuffle_pkt[i]); break;
-			case 25:
-				continue;
-			case 26:
-				sprintf(str, "\t\tfriend_request %04X\n", shuffle_pkt[i]); break;
-			case 27:
-				sprintf(str, "\t\thomunculus_command %04X\n", shuffle_pkt[i]); break;
-			case 28:
-				sprintf(str, "\t\tstorage_password %04X\n", shuffle_pkt[i]); break;
-			}
-			file << str;
-		}
-		sprintf(str, "\n\t$self->cryptKeys(0x%08X, 0x%08X, 0x%08X);\n", *(DWORD*)&ReadMemory(offset + 3), *(DWORD*)&ReadMemory(offset + 17), *(DWORD*)&ReadMemory(offset + 10));
 		file << str;
 	}
 	file.close();
