@@ -53,10 +53,41 @@ int main(void) {
 	if (!(process = OpenProcess(PROCESS_VM_READ | PROCESS_QUERY_INFORMATION, FALSE, pid)))
 		EXIT("OpenProcess failed.\n");
 
+
+
 	printf("Step 1 - Read process memory to vector\n");
 	if (!(session_base_addr = ReadSessionMemory(process, &vec)))
 		EXIT("Read memory failed.\n");
 	printf("Done.\n");
+
+	//printf("Step 2a - Find the position of rijndael encryption function\n");
+	//if ((refOffset = ScanMem(&vec, "\x8B\x8B\xD0\x03\x00\x00\x8B\x83\xC8\x03\x00\x00\x41\x0F\xAF\xCE\x99", 0, 0, 17, false)) == 0xFFFFFFFF)
+	//	EXIT("No rijndael encryption found.\n");
+	//printf("Address: %08X (raw: %08X)\n", session_base_addr + refOffset - 1, refOffset - 1);
+
+	//printf("Step 2b - Find the entry address of rijndael encryption function\n");
+	//if ((refOffset = ScanMem(&vec, "\x55\x8B\xEC\x83\xEC\x18", 0, refOffset, 6, true)) == 0xFFFFFFFF)
+	//	EXIT("No rijndael encryption found.\n");
+	//offset = session_base_addr + refOffset;
+	//printf("Address: %08X (raw: %08X)\n", session_base_addr + refOffset, refOffset);
+
+	//printf("Step 2c - Find the source of function call\n");
+	//char searchValue[4];
+	//searchValue[0] = offset & 0xFF;
+	//searchValue[1] = (offset >> 8) & 0xFF;
+	//searchValue[2] = (offset >> 16) & 0xFF;
+	//searchValue[3] = (offset >> 24) & 0xFF;
+	//if ((refOffset = ScanMem(&vec, searchValue, 0, 0, 4, false)) == 0xFFFFFFFF)
+	//	EXIT("No rijndael encryption found.\n");
+	//printf("Address: %08X\n", session_base_addr + refOffset);
+
+	//printf("Step 2d - Find the call function of first key\n");
+	//if ((refOffset = ScanMem(&vec, "\x8D\x93", refOffset + 1, 0, 2, false)) == 0xFFFFFFFF)
+	//	EXIT("No rijndael encryption found.\n");
+	//printf("Address: %08X\n", session_base_addr + refOffset - 1);
+	//printf("Key EBP Offset: %08X\n", session_base_addr + refOffset - 1);
+
+	////*(DWORD*)&ReadMemory(offset + 3)
 
 	printf("Step 2a - Find the GetPacketSize function call\n");
 	if ((refOffset = ScanMem(&vec, "\xE8\xAB\xAB\xAB\xAB\x8B\xC8\xE8\xAB\xAB\xAB\xAB\x50\xE8\xAB\xAB\xAB\xAB\x8B\xC8\xE8\xAB\xAB\xAB\xAB\x6A\x01\xE8\xAB\xAB\xAB\xAB\x8B\xC8\xE8\xAB\xAB\xAB\xAB\x6A\x06", 0, 0, 41, false)) == 0xFFFFFFFF)
@@ -121,11 +152,14 @@ int main(void) {
 	printf("Pattern 2: %08X\n", session_base_addr + pktcall2);
 
 	printf("Step 5a - Get Client date\n");
-	if ((next = ScanMem(&vec, "mylog(\xAB\xAB\xAB \xAB\xAB \xAB\xAB\xAB\xAB).txt", 0, 0, 22, false)) == 0xFFFFFFFF)
-		EXIT("Client date not found.\n");
-	sprintf(str, "%.4s%02d%02d", &ReadMemory(next + 13), MonthName2Num(&ReadMemory(next + 6)), atoi(&ReadMemory(next + 10)));
-	ClientDate = atoi(str);
-	printf("Client date: %d\n", ClientDate);
+	if ((next = ScanMem(&vec, "mylog(\xAB\xAB\xAB \xAB\xAB \xAB\xAB\xAB\xAB).txt", 0, 0, 22, false)) == 0xFFFFFFFF) {
+		printf("Client date not found.\n");
+		ClientDate = 2016;
+	} else {
+		sprintf(str, "%.4s%02d%02d", &ReadMemory(next + 13), MonthName2Num(&ReadMemory(next + 6)), atoi(&ReadMemory(next + 10)));
+		ClientDate = atoi(str);
+		printf("Client date: %d\n", ClientDate);
+	}
 
 	printf("Step 5b - Extract packet length\n");
 	for (i = c = 0; i < 2; ++i) {
@@ -180,6 +214,7 @@ int main(void) {
 		}
 	}
 
+	printf("Step 6 - Key Extraction\n");
 	file.open("keys.txt");
 	sprintf(str, "# Client Date <%d>\n", ClientDate);
 	file << str;
@@ -187,9 +222,11 @@ int main(void) {
 	file << str;
 	if ((offset = ScanMem(&vec, "\x8B\x0D\xAB\xAB\xAB\x00\x6A\x01\xE8", refOffset, 0, 9, false)) == 0xFFFFFFFF)
 		EXIT("Packet keys not found.\n");
+	printf("Key function address: %08X\n", offset);
 	offset += *(DWORD*)&ReadMemory(offset + 9);
 	if ((offset = ScanMem(&vec, "\xC7\x41\xAB\xAB\xAB\xAB\xAB\xC7\x41\xAB\xAB\xAB\xAB\xAB\xC7\x41", offset, 0, 16, false)) == 0xFFFFFFFF)
 		EXIT("Packet keys not found.\n");
+	printf("Key function address: %08X\n", offset);
 	sprintf(str, "0x%08X\n", *(DWORD*)&ReadMemory(offset + 3));
 	file << str;
 	sprintf(str, "0x%08X\n", *(DWORD*)&ReadMemory(offset + 17));
@@ -262,7 +299,7 @@ int main(void) {
 			(char*)("022D homunculus_command"),
 			(char*)("023B storage_password"),
 		};
-		file.open("shufflepackets.txt");
+		file.open("shuffles.txt");
 		sprintf(str, "# Client Date <%d>\n", ClientDate);
 		file << str;
 		sprintf(str, "# PacketExtractor by BryanWai\n");
