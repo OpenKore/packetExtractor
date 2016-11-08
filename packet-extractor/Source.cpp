@@ -12,7 +12,7 @@
 # pragma warning(disable : 4996)
 # endif
 
-#define RO_EXE_NAME "ragexe.exe"
+#define RO_EXE_NAME "Ragexe.exe"
 #define MAX_PACKET 0x1000
 #define MAX_SHUFFLE_PACKET 29
 #define MAX_SYNC_EX_PACKET 84
