@@ -32,6 +32,31 @@ size_t ScanMem(vector<char> *vec, const char *data, size_t start, size_t end, si
 char MonthName2Num(const char *name);
 
 #define ReadMemory(addr) vec[(addr)]
+
+
+int ActivateSeDebugPrivilege(void) {
+	HANDLE hToken;
+	LUID Val;
+	TOKEN_PRIVILEGES tp;
+
+	if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &hToken))
+		return(GetLastError());
+
+	if (!LookupPrivilegeValue(NULL, SE_DEBUG_NAME, &Val))
+		return(GetLastError());
+
+	tp.PrivilegeCount = 1;
+	tp.Privileges[0].Luid = Val;
+	tp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+
+	if (!AdjustTokenPrivileges(hToken, FALSE, &tp, sizeof(tp), NULL, NULL))
+		return(GetLastError());
+
+	CloseHandle(hToken);
+
+	return 1;
+}
+
 int main(void) {
 	vector<char> vec;
 	DWORD pid;
@@ -45,13 +70,28 @@ int main(void) {
 	ofstream file;
 	char str[128];
 
+	PROCESS_INFORMATION ProcessInfo; //This is what we get as an [out] parameter
+
+	STARTUPINFO StartupInfo; //This is an [in] parameter
+
+	ZeroMemory(&StartupInfo, sizeof(StartupInfo));
+	StartupInfo.cb = sizeof StartupInfo; //Only compulsory field
+	cout<<ActivateSeDebugPrivilege();
+	CreateProcess("D:\\RagnarokOnlineTH\\ragexe.exe", " 1rag1", NULL, NULL, FALSE, INHERIT_PARENT_AFFINITY, NULL, "D:\\RagnarokOnlineTH\\", &StartupInfo, &ProcessInfo);
+
 	while (!(pid = GetPid(RO_EXE_NAME))) {
 		cout << "Please run RO clinet." << endl << "Press ENTER to continue...";
 		cin.ignore((numeric_limits<streamsize>::max)(), '\n');
 	}
+	cout << "PID:" << pid << endl;
 
-	if (!(process = OpenProcess(PROCESS_VM_READ | PROCESS_QUERY_INFORMATION, FALSE, pid)))
-		EXIT("OpenProcess failed.\n");
+	while (!(process = OpenProcess(PROCESS_VM_READ | PROCESS_QUERY_INFORMATION, FALSE, pid))) {
+		// https://msdn.microsoft.com/en-us/library/windows/desktop/ms681382(v=vs.85).aspx
+		cout << "ERROR:" << GetLastError() << endl << "Please Enter To Retry.";
+		cin.ignore((numeric_limits<streamsize>::max)(), '\n');
+		cout << ActivateSeDebugPrivilege();
+		// EXIT("OpenProcess failed.\n");
+	}
 
 
 
@@ -90,7 +130,9 @@ int main(void) {
 	////*(DWORD*)&ReadMemory(offset + 3)
 
 	printf("Step 2a - Find the GetPacketSize function call\n");
+	//if ((refOffset = ScanMem(&vec, "\xE8\xAB\xAB\xAB\xAB\x8B\xC8\xE8\xAB\xAB\xAB\xAB\x50\xE8\xAB\xAB\xAB\xAB\x8B\xC8\xE8\xAB\xAB\xAB\xAB\x6A\x01\xE8\xAB\xAB\xAB\xAB\x8B\xC8\xE8\xAB\xAB\xAB\xAB\x6A\x06", 0, 0, 41, false)) == 0xFFFFFFFF)
 	if ((refOffset = ScanMem(&vec, "\xE8\xAB\xAB\xAB\xAB\x8B\xC8\xE8\xAB\xAB\xAB\xAB\x50\xE8\xAB\xAB\xAB\xAB\x8B\xC8\xE8\xAB\xAB\xAB\xAB\x6A\x01\xE8\xAB\xAB\xAB\xAB\x8B\xC8\xE8\xAB\xAB\xAB\xAB\x6A\x06", 0, 0, 41, false)) == 0xFFFFFFFF)
+	//8D 45 C4 50 0F BF 45 C4 50 is better?
 		EXIT("GetPacketSize function call not found.\n");
 	printf("Address: %08X\n", session_base_addr + refOffset - 1);
 
