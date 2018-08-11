@@ -100,6 +100,7 @@ int main(void) {
 
 	printf("Step 2c - Look for g_PacketLenMap reference and the pktLen function call following it\n");
 	if ((offset = ScanMem(&vec, "\xB9\xAB\xAB\xAB\x00\xE8\xAB\xAB\xAB\xAB\x8B\xAB\x04", offset, 0, 13, false)) == 0xFFFFFFFF)
+// TODO : for New client = offset === -1 "\xB9\xAB\xAB\xAB\x01\xE8\xAB\xAB\xAB\xAB\x8B\xAB\x04"	 [4144]	
 		EXIT("g_PacketLenMap reference not found.\n");
 	printf("Address: %08X\n", session_base_addr + offset);
 
@@ -221,6 +222,7 @@ int main(void) {
 	sprintf(str, "# PacketExtractor by BryanWai\n");
 	file << str;
 	if ((offset = ScanMem(&vec, "\x8B\x0D\xAB\xAB\xAB\x00\x6A\x01\xE8", refOffset, 0, 9, false)) == 0xFFFFFFFF)
+// For New client offset === -1 \x8B\x0D\xAB\xAB\xAB\x01\x6A\x01\xE8 [4144]	
 		EXIT("Packet keys not found.\n");
 	printf("Key function address: %08X\n", offset);
 	offset += *(DWORD*)&ReadMemory(offset + 9);
